@@ -20,23 +20,24 @@ S = st.session_state
 CSS = r"""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-:root { --bg:#232C33; --surf:#2B363F; --surf2:#313E48; --teal:#5A7D7C; --blue:#A0C1D1; --lav:#B5B2C2; --ice:#DADFF7; }
+:root { --ink:#232C33; --ink2:#4A5560; --bg:#232C33; --surf:#2B363F; --surf2:#313E48; --teal:#5A7D7C; --blue:#A0C1D1; --lav:#B5B2C2; --ice:#DADFF7; }
 html, body, .stApp, .stApp button, .stApp input, .stApp label { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; }
 .block-container { max-width: 1180px; padding-top: 4.5rem; }
 footer, #MainMenu { visibility: hidden; }
-.mf-step { color: var(--blue); font-size: .72rem; font-weight: 700; letter-spacing: .14em; }
-.mf-q { font-size: 2rem; font-weight: 800; letter-spacing: -.02em; margin: .3rem 0 .4rem; color: var(--ice); }
-.mf-sub { color: var(--lav); margin: 0 0 1.2rem; max-width: 52ch; }
-.mf-head { display: flex; justify-content: space-between; color: var(--blue); font-size: .7rem; font-weight: 700; letter-spacing: .14em; margin: 1.2rem 0 .7rem; padding-bottom: .5rem; border-bottom: 1px solid var(--teal); }
+.mf-step { color: var(--teal); font-size: .72rem; font-weight: 700; letter-spacing: .14em; }
+.mf-q { font-size: 2rem; font-weight: 800; letter-spacing: -.02em; margin: .3rem 0 .4rem; color: var(--ink); }
+.mf-sub { color: var(--ink2); margin: 0 0 1.2rem; max-width: 52ch; }
+.mf-head { display: flex; justify-content: space-between; color: var(--teal); font-size: .7rem; font-weight: 700; letter-spacing: .14em; margin: 1.2rem 0 .7rem; padding-bottom: .5rem; border-bottom: 1px solid var(--teal); }
 .mf-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; align-items: stretch; }
 .mf-card { display: flex; flex-direction: column; background: var(--surf); border: 1px solid var(--teal); border-radius: 0; padding: 18px; color: var(--ice); }
 .mf-hero { border: 2px solid var(--blue); }
+.mf-card .mf-brand { color: var(--blue); }
 .mf-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .mf-tag { padding: 4px 10px; font-size: .66rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; background: var(--lav); color: var(--bg); }
 .mf-hero .mf-tag { background: var(--ice); }
 .mf-rank { font-size: 1.5rem; font-weight: 800; color: var(--teal); line-height: 1; }
 .mf-hero .mf-rank { color: var(--blue); }
-.mf-brand { color: var(--blue); font-size: .7rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.mf-brand { color: var(--teal); font-size: .7rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .mf-name { font-size: 1.45rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.15; margin: .25rem 0 .9rem; color: var(--ice); }
 .mf-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
 .mf-tile { background: var(--bg); border: 1px solid var(--teal); border-radius: 0; padding: 10px 6px; min-height: 64px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
@@ -328,11 +329,11 @@ def card(r, rank, universal):
 # Results
 # ----------------------------------------------------------------------------
 CLASS_SCALE = alt.Scale(domain=["Ultralight", "Light", "Medium", "Heavy"],
-                        range=["#DADFF7", "#A0C1D1", "#B5B2C2", "#5A7D7C"])
+                        range=["#5A7D7C", "#7FA6BA", "#9A94B0", "#232C33"])
 SHAPE_SCALE = alt.Scale(domain=["Symmetrical", "Hybrid", "Ergonomic"], range=["circle", "square", "triangle-up"])
 PARTS = {"Fit": "Hand fit", "Recency": "Newer tech", "Weight bonus": "Weight", "Brand pts": "Brand",
          "Editor pts": "Editor's choice", "Grip adj": "Grip focus", "Budget adj": "Budget edge / penalty"}
-PART_COLORS = ["#A0C1D1", "#DADFF7", "#B5B2C2", "#5A7D7C", "#E3C98B", "#8FB3A3", "#D98C8C"]
+PART_COLORS = ["#5A7D7C", "#A0C1D1", "#B5B2C2", "#232C33", "#E3C98B", "#8FB3A3", "#D98C8C"]
 
 
 def sidebar():
@@ -376,7 +377,7 @@ def chart_fit_map(recs, target):
     tip = ["Name", "Shape", alt.Tooltip("Length:Q", format=".0f"), alt.Tooltip("Width:Q", format=".0f"),
            alt.Tooltip("Weight:Q", format=".0f"), alt.Tooltip("Price:Q", format="$.0f"),
            alt.Tooltip("Score:Q", format=".0f")]
-    pts = alt.Chart(d).mark_point(filled=True, opacity=.9, stroke="#232C33", strokeWidth=1).encode(
+    pts = alt.Chart(d).mark_point(filled=True, opacity=.9, stroke="#FFFFFF", strokeWidth=1).encode(
         x=alt.X("Length:Q", title="Length (mm)", scale=alt.Scale(zero=False, padding=12)),
         y=alt.Y("Width:Q", title="Width (mm)", scale=alt.Scale(zero=False, padding=12)),
         size=alt.Size("Score:Q", scale=alt.Scale(range=[70, 420]), legend=None),
@@ -384,21 +385,21 @@ def chart_fit_map(recs, target):
         shape=alt.Shape("Shape:N", scale=SHAPE_SCALE, legend=alt.Legend(title="Shape")), tooltip=tip)
     ideal = alt.Chart(pd.DataFrame({"Length": [target["length"]], "Width": [target["width"]],
                                     "Name": ["Ideal size for your hand"]})
-                      ).mark_point(shape="cross", size=380, filled=True, color="#FFFFFF"
+                      ).mark_point(shape="cross", size=380, filled=True, color="#232C33"
                                    ).encode(x="Length:Q", y="Width:Q", tooltip=["Name"])
     return (pts + ideal).properties(height=340).interactive()
 
 
 def chart_value(recs, budget):
     d = chart_data(recs)
-    pts = alt.Chart(d).mark_point(filled=True, size=120, opacity=.9, stroke="#232C33", strokeWidth=1).encode(
+    pts = alt.Chart(d).mark_point(filled=True, size=120, opacity=.9, stroke="#FFFFFF", strokeWidth=1).encode(
         x=alt.X("Price:Q", title="Price (USD)", scale=alt.Scale(zero=False)),
         y=alt.Y("Score:Q", title="Match score", scale=alt.Scale(zero=False)),
         color=alt.Color("Class:N", scale=CLASS_SCALE, legend=alt.Legend(title="Weight class")),
         shape=alt.Shape("Shape:N", scale=SHAPE_SCALE, legend=alt.Legend(title="Shape")),
         tooltip=["Name", "Shape", alt.Tooltip("Price:Q", format="$.0f"), alt.Tooltip("Score:Q", format=".0f"),
                  alt.Tooltip("Weight:Q", format=".0f")])
-    rule = alt.Chart(pd.DataFrame({"Budget": [budget]})).mark_rule(strokeDash=[5, 4], color="#A0C1D1"
+    rule = alt.Chart(pd.DataFrame({"Budget": [budget]})).mark_rule(strokeDash=[5, 4], color="#5A7D7C"
                                                                      ).encode(x="Budget:Q")
     return (pts + rule).properties(height=340).interactive()
 
@@ -428,9 +429,9 @@ def chart_weight_classes(db):
 
 def chart_lengths(db, target_len):
     d = db[["Length (mm)"]].rename(columns={"Length (mm)": "Length"})
-    bars = alt.Chart(d).mark_bar(color="#A0C1D1").encode(
+    bars = alt.Chart(d).mark_bar(color="#5A7D7C").encode(
         x=alt.X("Length:Q", bin=alt.Bin(step=2), title="Length (mm)"), y=alt.Y("count()", title="Mice"))
-    rule = alt.Chart(pd.DataFrame({"Ideal": [target_len]})).mark_rule(color="#FFFFFF", strokeWidth=3
+    rule = alt.Chart(pd.DataFrame({"Ideal": [target_len]})).mark_rule(color="#232C33", strokeWidth=3
                                                                       ).encode(x="Ideal:Q")
     return (bars + rule).properties(height=260)
 
@@ -469,7 +470,7 @@ def tab_compare(recs, target, universal):
     with a:
         st.markdown("**Size map**")
         st.altair_chart(chart_fit_map(recs, target), width="stretch")
-        st.caption("The white cross is the ideal size for your hand and grip. Closer is a better fit; "
+        st.caption("The dark cross is the ideal size for your hand and grip. Closer is a better fit; "
                    "bigger dots score higher. Circles are symmetrical mice, squares hybrid, triangles ergonomic. "
                    "Drag to pan, scroll to zoom, hover for details.")
     with b:
@@ -542,7 +543,7 @@ def tab_dataset(target):
     with b:
         st.markdown("**Mouse lengths in the dataset**")
         st.altair_chart(chart_lengths(db, target["length"]), width="stretch")
-        st.caption("The white line is the ideal length for your hand and grip.")
+        st.caption("The dark line is the ideal length for your hand and grip.")
 
 
 def tab_about(target):
@@ -558,8 +559,9 @@ def tab_about(target):
         f"Longer than ideal is penalized less than shorter. Poor fits are dropped.\n"
         f"- **Claw grips:** relaxed claw prefers a mid-center hump, aggressive claw a moderate to aggressive "
         f"back hump, pincer claw a shorter mouse with a moderate back hump.\n"
-        f"- **Grip focus:** Endgame Gear OP1 is built for claw and fingertip, XM2 for claw and palm. They get "
-        f"+{core.GRIP_FOCUS_PTS} points for those grips and -{core.GRIP_FOCUS_PTS} for the others.\n"
+        f"- **Grip focus:** Endgame Gear OP1 is built for claw and fingertip, XM2 for claw and palm, LAMZU "
+        f"Atlantis Mini for claw and aggressive claw. They get +{core.GRIP_FOCUS_PTS} points for those grips "
+        f"and -{core.GRIP_FOCUS_PTS} for the others.\n"
         f"- **Newer tech (up to {core.RECENCY_POINTS[P['w_recency']]}):** sensor generation and polling rate.\n"
         f"- **Weight (up to {core.WEIGHT_POINTS[P['w_wpref']]}):** \"Prefer light\" rewards up to 65 g, "
         f"\"Ultralight\" only 50 g and below.\n"
