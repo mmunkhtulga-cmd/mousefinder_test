@@ -42,7 +42,11 @@ footer, #MainMenu { visibility: hidden; }
 .mf-tile { background: var(--bg); border: 1px solid var(--teal); border-radius: 0; padding: 10px 6px; min-height: 64px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
 .mf-tile b { font-size: .92rem; font-weight: 800; color: var(--ice); line-height: 1.15; }
 .mf-tile span { font-size: .6rem; font-weight: 700; letter-spacing: .12em; color: var(--blue); margin-top: 4px; }
-.mf-edit { align-self: flex-start; margin-bottom: 10px; padding: 3px 9px; font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: var(--teal); color: var(--ice); }
+.mf-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.mf-shape { padding: 3px 9px; font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--blue); color: var(--blue); }
+.mf-ergonomic { background: var(--lav); border-color: var(--lav); color: var(--bg); }
+.mf-hybrid { border-color: var(--lav); color: var(--lav); }
+.mf-edit { padding: 3px 9px; font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: var(--teal); color: var(--ice); }
 .mf-desc { color: var(--lav); font-size: .86rem; margin: 0 0 12px; }
 .mf-why-k { color: var(--blue); font-size: .66rem; font-weight: 800; letter-spacing: .14em; }
 .mf-list { margin: .4rem 0 .9rem; padding: 0; list-style: none; }
@@ -81,7 +85,7 @@ if "P" not in S:
     S.P = dict(
         w_grip=None, w_len=18.5, w_wid=8.5, w_budget=70, w_hand="Right", w_conn="Any",
         w_shape="Any", w_maxw=100, w_wpref="Prefer light", w_recency="Medium",
-        w_perbrand=2, w_rows=15, p_editor=core.EDITOR_POINTS,
+        w_perbrand=2, w_list=False, w_rows=15, p_editor=core.EDITOR_POINTS,
         **{f"s_{t}": v[0] for t, v in core.TIER_DEFAULTS.items()},
         **{f"p_{t}": v[1] for t, v in core.TIER_DEFAULTS.items()},
     )
@@ -296,14 +300,18 @@ def card(r, rank, universal):
     label = {1: "Best match", 2: "Second-best"}.get(rank, f"Match #{rank}")
     grip = "All" if universal else " / ".join(core.suits(r))
     tiles = tile(f'{r["Weight (grams)"]:.0f} g', core.weight_class(r["Weight (grams)"]).upper()) + tile(r["Connectivity"], "CONNECTION") + tile(grip, "GRIP")
-    edit = '<div class="mf-edit">Editor\'s choice</div>' if r["Editor"] else ""
+    shape = str(r["Shape"])
+    badges = f'<span class="mf-shape mf-{e(shape.lower())}">{e(shape)}</span>'
+    if r["Editor"]:
+        badges += '<span class="mf-edit">Editor\'s choice</span>'
+
     why = core.why_chips(r, P["w_grip"], P["w_len"] * 10, P["w_conn"], P["w_budget"])[:3]
     items = "".join(f"<li>{e(w)}</li>" for w in why)
     cls = "mf-card mf-hero" if rank == 1 else "mf-card"
     return (f'<div class="{cls}"><div class="mf-top"><span class="mf-tag">{label}</span>'
             f'<span class="mf-rank">0{rank}</span></div>'
             f'<div class="mf-brand">{e(brand)}</div><div class="mf-name">{e(model)}</div>'
-            f'<div class="mf-tiles">{tiles}</div>{edit}'
+            f'<div class="mf-badges">{badges}</div><div class="mf-tiles">{tiles}</div>'
             f'<p class="mf-desc">{e(core.describe(r, universal))}</p>'
             f'<div class="mf-why-k">WHY IT MATCHES</div><ul class="mf-list">{items}</ul>'
             f'<div class="mf-spacer"></div>{price_block(r)}'
@@ -315,9 +323,10 @@ def card(r, rank, universal):
 # ----------------------------------------------------------------------------
 CLASS_SCALE = alt.Scale(domain=["Ultralight", "Light", "Medium", "Heavy"],
                         range=["#DADFF7", "#A0C1D1", "#B5B2C2", "#5A7D7C"])
+SHAPE_SCALE = alt.Scale(domain=["Symmetrical", "Hybrid", "Ergonomic"], range=["circle", "square", "triangle-up"])
 PARTS = {"Fit": "Hand fit", "Recency": "Newer tech", "Weight bonus": "Weight", "Brand pts": "Brand",
-         "Editor pts": "Editor's choice", "Budget adj": "Budget edge / penalty"}
-PART_COLORS = ["#A0C1D1", "#DADFF7", "#B5B2C2", "#5A7D7C", "#E3C98B", "#D98C8C"]
+         "Editor pts": "Editor's choice", "Grip adj": "Grip focus", "Budget adj": "Budget edge / penalty"}
+PART_COLORS = ["#A0C1D1", "#DADFF7", "#B5B2C2", "#5A7D7C", "#E3C98B", "#8FB3A3", "#D98C8C"]
 
 
 def sidebar():
@@ -329,7 +338,9 @@ def sidebar():
         st.segmented_control("Connection", ["Any", "Wireless", "Wired"], key="w_conn",
                              on_change=restore, args=("w_conn",))
         st.segmented_control("Shape", ["Any", "Symmetrical", "Ergonomic"], key="w_shape",
-                             on_change=restore, args=("w_shape",))
+                             on_change=restore, args=("w_shape",),
+                             help="Symmetrical mice work for either hand. Ergonomic mice are sculpted for one "
+                                  "hand. Hybrid mice are included in both choices.")
         st.slider("Max weight (g)", 30, 120, step=5, key="w_maxw")
         st.selectbox("Weight preference", list(core.WEIGHT_POINTS), key="w_wpref")
         st.selectbox("Favor newer tech", list(core.RECENCY_POINTS), key="w_recency",
@@ -357,14 +368,15 @@ def chart_data(recs):
 
 def chart_fit_map(recs, target):
     d = chart_data(recs)
-    tip = ["Name", alt.Tooltip("Length:Q", format=".0f"), alt.Tooltip("Width:Q", format=".0f"),
+    tip = ["Name", "Shape", alt.Tooltip("Length:Q", format=".0f"), alt.Tooltip("Width:Q", format=".0f"),
            alt.Tooltip("Weight:Q", format=".0f"), alt.Tooltip("Price:Q", format="$.0f"),
            alt.Tooltip("Score:Q", format=".0f")]
-    pts = alt.Chart(d).mark_circle(opacity=.9, stroke="#232C33", strokeWidth=1).encode(
+    pts = alt.Chart(d).mark_point(filled=True, opacity=.9, stroke="#232C33", strokeWidth=1).encode(
         x=alt.X("Length:Q", title="Length (mm)", scale=alt.Scale(zero=False, padding=12)),
         y=alt.Y("Width:Q", title="Width (mm)", scale=alt.Scale(zero=False, padding=12)),
         size=alt.Size("Score:Q", scale=alt.Scale(range=[70, 420]), legend=None),
-        color=alt.Color("Class:N", scale=CLASS_SCALE, legend=alt.Legend(title="Weight class")), tooltip=tip)
+        color=alt.Color("Class:N", scale=CLASS_SCALE, legend=alt.Legend(title="Weight class")),
+        shape=alt.Shape("Shape:N", scale=SHAPE_SCALE, legend=alt.Legend(title="Shape")), tooltip=tip)
     ideal = alt.Chart(pd.DataFrame({"Length": [target["length"]], "Width": [target["width"]],
                                     "Name": ["Ideal size for your hand"]})
                       ).mark_point(shape="cross", size=380, filled=True, color="#FFFFFF"
@@ -374,11 +386,12 @@ def chart_fit_map(recs, target):
 
 def chart_value(recs, budget):
     d = chart_data(recs)
-    pts = alt.Chart(d).mark_circle(size=120, opacity=.9, stroke="#232C33", strokeWidth=1).encode(
+    pts = alt.Chart(d).mark_point(filled=True, size=120, opacity=.9, stroke="#232C33", strokeWidth=1).encode(
         x=alt.X("Price:Q", title="Price (USD)", scale=alt.Scale(zero=False)),
         y=alt.Y("Score:Q", title="Match score", scale=alt.Scale(zero=False)),
         color=alt.Color("Class:N", scale=CLASS_SCALE, legend=alt.Legend(title="Weight class")),
-        tooltip=["Name", alt.Tooltip("Price:Q", format="$.0f"), alt.Tooltip("Score:Q", format=".0f"),
+        shape=alt.Shape("Shape:N", scale=SHAPE_SCALE, legend=alt.Legend(title="Shape")),
+        tooltip=["Name", "Shape", alt.Tooltip("Price:Q", format="$.0f"), alt.Tooltip("Score:Q", format=".0f"),
                  alt.Tooltip("Weight:Q", format=".0f")])
     rule = alt.Chart(pd.DataFrame({"Budget": [budget]})).mark_rule(strokeDash=[5, 4], color="#A0C1D1"
                                                                      ).encode(x="Budget:Q")
@@ -452,7 +465,8 @@ def tab_compare(recs, target, universal):
         st.markdown("**Size map**")
         st.altair_chart(chart_fit_map(recs, target), width="stretch")
         st.caption("The white cross is the ideal size for your hand and grip. Closer is a better fit; "
-                   "bigger dots score higher. Drag to pan, scroll to zoom, hover for details.")
+                   "bigger dots score higher. Circles are symmetrical mice, squares hybrid, triangles ergonomic. "
+                   "Drag to pan, scroll to zoom, hover for details.")
     with b:
         st.markdown("**Price vs match score**")
         st.altair_chart(chart_value(recs, P["w_budget"]), width="stretch")
@@ -496,7 +510,7 @@ def tab_dataset(target):
     if rep:
         a, b, c, d = st.columns(4)
         a.metric("Rows in file", f"{rep['raw']:,}")
-        b.metric("Removed", f"{rep['outliers'] + rep['outdated']:,}")
+        b.metric("Removed", f"{rep['outliers'] + rep['outdated'] + rep.get('excluded', 0):,}")
         c.metric("Mice used", f"{rep['kept']:,}")
         d.metric("Verified prices", f"{int((db['Price source'] == 'verified').sum()):,}")
         st.markdown("##### How the data is cleaned")
@@ -506,7 +520,8 @@ def tab_dataset(target):
             f"2. **Outliers:** {rep['outliers']:,} rows outside 75 to 140 mm long or 45 to 80 mm wide "
             f"(rings, trackballs, oversized devices) are dropped.\n"
             f"3. **Old tech:** {rep['outdated']:,} rows with a PAW3335, PAW3370 or older sensor, or a generic "
-            f"or unlabelled one, are dropped. Editor's choice mice are always kept.\n"
+            f"or unlabelled one, are dropped. Editor's choice mice are always kept. "
+            f"{rep.get('excluded', 0):,} superseded models (Endgame Gear OP1 and XM2 v1) are also dropped.\n"
             f"4. **Enrichment:** brand names are repaired, every mouse gets a brand tier, and a modernity "
             f"score is inferred from sensor speed and polling rate because the data has no release year.\n"
             f"5. **Prices:** merged from `prices.csv`; the rest get an estimate that is labelled as one.")
@@ -538,6 +553,8 @@ def tab_about(target):
         f"Longer than ideal is penalized less than shorter. Poor fits are dropped.\n"
         f"- **Claw grips:** relaxed claw prefers a mid-center hump, aggressive claw a moderate to aggressive "
         f"back hump, pincer claw a shorter mouse with a moderate back hump.\n"
+        f"- **Grip focus:** Endgame Gear OP1 is built for claw and fingertip, XM2 for claw and palm. They get "
+        f"+{core.GRIP_FOCUS_PTS} points for those grips and -{core.GRIP_FOCUS_PTS} for the others.\n"
         f"- **Newer tech (up to {core.RECENCY_POINTS[P['w_recency']]}):** sensor generation and polling rate.\n"
         f"- **Weight (up to {core.WEIGHT_POINTS[P['w_wpref']]}):** \"Prefer light\" rewards up to 65 g, "
         f"\"Ultralight\" only 50 g and below.\n"
@@ -588,18 +605,21 @@ def step_results():
     m2.metric("Best match score", f"{recs['Score'].iloc[0]:.0f}%")
     m3.metric("Median price of matches", f"${recs['Price'].median():.0f}")
 
-    t_top, t_cmp, t_list, t_data, t_about = st.tabs(
-        ["Top matches", "Compare", "Full list", "Dataset", "About"])
+    t_top, t_cmp, t_data, t_about = st.tabs(["Top matches", "Compare", "Dataset", "About"])
     with t_top:
         tab_top(recs, universal)
     with t_cmp:
         tab_compare(recs, target, universal)
-    with t_list:
-        tab_list(recs)
     with t_data:
         tab_dataset(target)
     with t_about:
         tab_about(target)
+
+    bind("w_list")
+    st.toggle("Show full ranked list", key="w_list")
+    keep("w_list")
+    if S.w_list:
+        tab_list(recs)
 
 
 # ----------------------------------------------------------------------------
