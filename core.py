@@ -488,7 +488,7 @@ def describe(row, universal=False) -> str:
         return "Universal shape that works for palm, claw and fingertip."
     length = row["Length (mm)"]
     size = "Compact" if length < 114 else ("Mid-size" if length < 122 else "Full-size")
-    shape = " ergonomic" if row["Shape"] == "Ergonomic" else ""
+    shape = f" {row['Shape'].lower()}" if row["Shape"] in ("Symmetrical", "Hybrid", "Ergonomic") else ""
     grips = " / ".join(g.lower() for g in suits(row))
     return f"{size}{shape} {row['Connectivity'].lower()} mouse for {grips}."
 
