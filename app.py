@@ -22,7 +22,7 @@ CSS = r"""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 :root { --bg:#232C33; --surf:#2B363F; --surf2:#313E48; --teal:#5A7D7C; --blue:#A0C1D1; --lav:#B5B2C2; --ice:#DADFF7; }
 html, body, .stApp, .stApp button, .stApp input, .stApp label { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; }
-.block-container { max-width: 1180px; padding-top: 2rem; }
+.block-container { max-width: 1180px; padding-top: 4.5rem; }
 footer, #MainMenu { visibility: hidden; }
 .mf-step { color: var(--blue); font-size: .72rem; font-weight: 700; letter-spacing: .14em; }
 .mf-q { font-size: 2rem; font-weight: 800; letter-spacing: -.02em; margin: .3rem 0 .4rem; color: var(--ice); }
@@ -73,6 +73,9 @@ footer, #MainMenu { visibility: hidden; }
 """
 st.markdown(CSS, unsafe_allow_html=True)
 
+SHAPE_CHOICES = ["Any", "Symmetrical", "Ergonomic"]
+SHAPE_HELP = ("Symmetrical mice work for either hand. Ergonomic mice are sculpted for one hand. "
+              "Hybrid mice are included in both choices.")
 GRIP_CHOICES = list(core.GRIPS) + ["Not sure"]
 GRIP_CAPTIONS = [g["blurb"] for g in core.GRIPS.values()] + [
     "We'll show mice with universal shapes that work for any grip, picked for your hand size."]
@@ -231,7 +234,7 @@ def step_grip():
 def step_budget():
     with centered():
         step_head(3, "What's your budget?", "We only suggest mice that fit your hand and your price range.")
-        bind("w_budget", "w_hand", "w_conn", "w_wpref")
+        bind("w_budget", "w_hand", "w_conn", "w_shape", "w_wpref")
         st.slider("Budget (USD)", 15, 250, step=5, key="w_budget")
         caps = core.budget_caps(S.w_budget, tier_config())
         st.caption(f"Top-tier brands can be suggested up to ${caps['Top']}, "
@@ -239,9 +242,12 @@ def step_budget():
         st.segmented_control("Hand", ["Right", "Left"], key="w_hand", on_change=restore, args=("w_hand",))
         st.segmented_control("Connection", ["Any", "Wireless", "Wired"], key="w_conn",
                              on_change=restore, args=("w_conn",))
+        st.segmented_control("Shape preference", SHAPE_CHOICES, key="w_shape", on_change=restore,
+                             args=("w_shape",), format_func=lambda x: "No preference" if x == "Any" else x,
+                             help=SHAPE_HELP)
         st.segmented_control("Weight", list(core.WEIGHT_POINTS), key="w_wpref",
                              on_change=restore, args=("w_wpref",))
-        keep("w_budget", "w_hand", "w_conn", "w_wpref")
+        keep("w_budget", "w_hand", "w_conn", "w_shape", "w_wpref")
         _, recs = run_recommend(n=999, per_brand=999)
         st.caption(f"{len(recs)} mice match so far.")
         a, b, _ = st.columns([1, 2, 2])
@@ -337,10 +343,9 @@ def sidebar():
         st.segmented_control("Hand", ["Right", "Left"], key="w_hand", on_change=restore, args=("w_hand",))
         st.segmented_control("Connection", ["Any", "Wireless", "Wired"], key="w_conn",
                              on_change=restore, args=("w_conn",))
-        st.segmented_control("Shape", ["Any", "Symmetrical", "Ergonomic"], key="w_shape",
-                             on_change=restore, args=("w_shape",),
-                             help="Symmetrical mice work for either hand. Ergonomic mice are sculpted for one "
-                                  "hand. Hybrid mice are included in both choices.")
+        st.segmented_control("Shape preference", SHAPE_CHOICES, key="w_shape", on_change=restore,
+                             args=("w_shape",), format_func=lambda x: "No preference" if x == "Any" else x,
+                             help=SHAPE_HELP)
         st.slider("Max weight (g)", 30, 120, step=5, key="w_maxw")
         st.selectbox("Weight preference", list(core.WEIGHT_POINTS), key="w_wpref")
         st.selectbox("Favor newer tech", list(core.RECENCY_POINTS), key="w_recency",
