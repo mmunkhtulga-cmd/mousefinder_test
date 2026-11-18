@@ -43,10 +43,13 @@ footer, #MainMenu { visibility: hidden; }
 .mf-tile { background: var(--bg); border: 1px solid var(--teal); border-radius: 0; padding: 10px 6px; min-height: 64px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
 .mf-tile b { font-size: .92rem; font-weight: 800; color: var(--ice); line-height: 1.15; }
 .mf-tile span { font-size: .6rem; font-weight: 700; letter-spacing: .12em; color: var(--blue); margin-top: 4px; }
+.mf-id { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.mf-icon { width: 64px; height: 64px; flex: none; object-fit: cover; border: 1px solid var(--teal); border-radius: 0; background: #fff; }
 .mf-badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
 .mf-shape { padding: 3px 9px; font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--blue); color: var(--blue); }
 .mf-ergonomic { background: var(--lav); border-color: var(--lav); color: var(--bg); }
 .mf-hybrid { border-color: var(--lav); color: var(--lav); }
+.mf-high { padding: 3px 9px; font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--lav); color: var(--lav); }
 .mf-edit { padding: 3px 9px; font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: var(--teal); color: var(--ice); }
 .mf-desc { color: var(--lav); font-size: .86rem; margin: 0 0 12px; }
 .mf-why-k { color: var(--blue); font-size: .66rem; font-weight: 800; letter-spacing: .14em; }
@@ -74,6 +77,8 @@ footer, #MainMenu { visibility: hidden; }
 """
 st.markdown(CSS, unsafe_allow_html=True)
 
+WEIGHT_HELP = ("Ultralight shows only mice up to 50 g. Light shows only mice from 51 to 65 g. "
+               "Don't mind shows every weight (up to the max weight).")
 SHAPE_CHOICES = ["Any", "Symmetrical", "Ergonomic"]
 SHAPE_HELP = ("Symmetrical mice work for either hand. Ergonomic mice are sculpted for one hand. "
               "Hybrid mice are included in both choices.")
@@ -88,8 +93,8 @@ GRIP_CAPTIONS = [g["blurb"] for g in core.GRIPS.values()] + [
 if "P" not in S:
     S.P = dict(
         w_grip=None, w_len=18.5, w_wid=8.5, w_budget=70, w_hand="Right", w_conn="Any",
-        w_shape="Any", w_maxw=100, w_wpref="Prefer light", w_recency="Medium",
-        w_perbrand=2, w_list=False, w_rows=15, p_editor=core.EDITOR_POINTS,
+        w_shape="Any", w_maxw=100, w_wpref="Don't mind", w_recency="Medium",
+        w_perbrand=2, w_list=False, w_rows=15, p_editor=core.EDITOR_POINTS, p_highly=core.HIGHLY_POINTS,
         **{f"s_{t}": v[0] for t, v in core.TIER_DEFAULTS.items()},
         **{f"p_{t}": v[1] for t, v in core.TIER_DEFAULTS.items()},
     )
@@ -152,7 +157,8 @@ def get_db():
 
 def eligible_pool(db):
     hands = {"Right": ["Right", "Ambidextrous"], "Left": ["Left", "Ambidextrous"]}[P["w_hand"]]
-    pool = db[db["Hand compatibility"].isin(hands) & (db["Weight (grams)"] <= P["w_maxw"])]
+    pool = db[db["Hand compatibility"].isin(hands) & (db["Weight (grams)"] <= P["w_maxw"])
+              & core.weight_ok(db, P["w_wpref"])]
     if P["w_conn"] != "Any":
         pool = pool[pool["Connectivity"] == P["w_conn"]]
     if P["w_shape"] != "Any":
@@ -165,10 +171,11 @@ def run_recommend(n=40, per_brand=None):
     pool = eligible_pool(get_db())
     L, W = P["w_len"] * 10, P["w_wid"] * 10
     if P["w_grip"] == "Not sure":
-        recs = core.universal_picks(pool, L, W, tier_config(), P["w_wpref"], P["w_recency"], P["p_editor"])
+        recs = core.universal_picks(pool, L, W, tier_config(), P["w_wpref"], P["w_recency"], P["p_editor"],
+                                   P["p_highly"])
         return recs, recs
     sc = core.score(pool, P["w_grip"], L, W, tier_config(), P["w_wpref"], P["w_recency"], P["p_editor"],
-                   budget=P["w_budget"])
+                   budget=P["w_budget"], highly_pts=P["p_highly"])
     recs = core.recommend(sc, P["w_budget"], tier_config(), per_brand or P["w_perbrand"], n)
     return sc, recs
 
@@ -211,6 +218,10 @@ def step_hand():
                        args=(ln, wd), width="stretch")
         st.write("")
         st.button("Next", type="primary", on_click=go, args=(2,))
+    guide = core.IMAGES_DIR / "ui" / "hand_measure.webp"
+    if guide.exists():
+        with st.expander("How to measure your hand", expanded=True):
+            st.image(str(guide), width="stretch")
 
 
 def step_grip():
@@ -230,6 +241,10 @@ def step_grip():
         a, b, _ = st.columns([1, 1, 3])
         a.button("Back", on_click=go, args=(1,))
         b.button("Next", type="primary", on_click=go, args=(3,), disabled=not S.w_grip)
+    guide = core.IMAGES_DIR / "ui" / "grip_visual.webp"
+    if guide.exists():
+        with st.expander("What each grip looks like", expanded=True):
+            st.image(str(guide), width="stretch")
 
 
 def step_budget():
@@ -247,7 +262,7 @@ def step_budget():
                              args=("w_shape",), format_func=lambda x: "No preference" if x == "Any" else x,
                              help=SHAPE_HELP)
         st.segmented_control("Weight", list(core.WEIGHT_POINTS), key="w_wpref",
-                             on_change=restore, args=("w_wpref",))
+                             on_change=restore, args=("w_wpref",), help=WEIGHT_HELP)
         keep("w_budget", "w_hand", "w_conn", "w_shape", "w_wpref")
         _, recs = run_recommend(n=999, per_brand=999)
         st.caption(f"{len(recs)} mice match so far.")
@@ -311,13 +326,19 @@ def card(r, rank, universal):
     badges = f'<span class="mf-shape mf-{e(shape.lower())}">{e(shape)}</span>'
     if r["Editor"]:
         badges += '<span class="mf-edit">Editor\'s choice</span>'
+    elif r["Highly"]:
+        badges += '<span class="mf-high">Highly recommended</span>'
+    icon = core.mouse_icon(r["Name"])
+    ident = f'<div class="mf-brand">{e(brand)}</div><div class="mf-name">{e(model)}</div>'
+    if icon:
+        ident = f'<div class="mf-id"><div>{ident}</div><img class="mf-icon" src="{icon}" alt=""></div>'
 
     why = core.why_chips(r, P["w_grip"], P["w_len"] * 10, P["w_conn"], P["w_budget"])[:3]
     items = "".join(f"<li>{e(w)}</li>" for w in why)
     cls = "mf-card mf-hero" if rank == 1 else "mf-card"
     return (f'<div class="{cls}"><div class="mf-top"><span class="mf-tag">{label}</span>'
             f'<span class="mf-rank">0{rank}</span></div>'
-            f'<div class="mf-brand">{e(brand)}</div><div class="mf-name">{e(model)}</div>'
+            f'{ident}'
             f'<div class="mf-badges">{badges}</div><div class="mf-tiles">{tiles}</div>'
             f'<p class="mf-desc">{e(core.describe(r, universal))}</p>'
             f'<div class="mf-why-k">WHY IT MATCHES</div><ul class="mf-list">{items}</ul>'
@@ -332,7 +353,7 @@ CLASS_SCALE = alt.Scale(domain=["Ultralight", "Light", "Medium", "Heavy"],
                         range=["#5A7D7C", "#7FA6BA", "#9A94B0", "#232C33"])
 SHAPE_SCALE = alt.Scale(domain=["Symmetrical", "Hybrid", "Ergonomic"], range=["circle", "square", "triangle-up"])
 PARTS = {"Fit": "Hand fit", "Recency": "Newer tech", "Weight bonus": "Weight", "Brand pts": "Brand",
-         "Editor pts": "Editor's choice", "Grip adj": "Grip focus", "Budget adj": "Budget edge / penalty"}
+         "Editor pts": "Award", "Grip adj": "Grip focus", "Budget adj": "Budget edge / penalty"}
 PART_COLORS = ["#5A7D7C", "#A0C1D1", "#B5B2C2", "#232C33", "#E3C98B", "#8FB3A3", "#D98C8C"]
 
 
@@ -348,7 +369,7 @@ def sidebar():
                              args=("w_shape",), format_func=lambda x: "No preference" if x == "Any" else x,
                              help=SHAPE_HELP)
         st.slider("Max weight (g)", 30, 120, step=5, key="w_maxw")
-        st.selectbox("Weight preference", list(core.WEIGHT_POINTS), key="w_wpref")
+        st.selectbox("Weight", list(core.WEIGHT_POINTS), key="w_wpref", help=WEIGHT_HELP)
         st.selectbox("Favor newer tech", list(core.RECENCY_POINTS), key="w_recency",
                      help="How many points a current sensor and polling rate are worth.")
         st.slider("Max results per brand", 1, 5, key="w_perbrand")
@@ -356,14 +377,15 @@ def sidebar():
 
         with st.expander("Advanced: brand tiers and points"):
             keys = [f"s_{t}" for t in core.TIER_DEFAULTS] + [f"p_{t}" for t in core.TIER_DEFAULTS]
-            bind(*keys, "p_editor")
+            bind(*keys, "p_editor", "p_highly")
             for t in core.TIER_DEFAULTS:
                 a, b = st.columns(2)
                 a.number_input(f"{core.TIER_LABEL[t]}: stretch %", 0, 50, step=5, key=f"s_{t}")
                 b.number_input(f"{core.TIER_LABEL[t]}: points", -20, 20, step=1, key=f"p_{t}")
             st.number_input("Editor's choice bonus", 0, 30, step=1, key="p_editor")
+            st.number_input("Highly recommended bonus", 0, 30, step=1, key="p_highly")
             st.caption("Stretch lets a tier be suggested a little above your budget.")
-            keep(*keys, "p_editor")
+            keep(*keys, "p_editor", "p_highly")
 
 
 def chart_data(recs):
@@ -491,16 +513,15 @@ def tab_list(recs):
     st.slider("Rows", 3, 40, key="w_rows")
     keep("w_rows")
     table = recs.head(S.w_rows)[
-        ["Name", "Tier", "Editor", "Score", "Price", "Price source", "Length (mm)", "Width (mm)",
+        ["Name", "Tier", "Award", "Score", "Price", "Price source", "Length (mm)", "Width (mm)",
          "Height (mm)", "Weight (grams)", "Shape", "Hump placement", "Sensor",
          "Polling rate (Hz)", "Connectivity"]].copy()
     table["Tier"] = table["Tier"].map(core.TIER_LABEL)
-    table["Editor"] = table["Editor"].map({True: "Yes", False: ""})
     table.index = table.index + 1
     st.dataframe(table, width="stretch", column_config={
         "Score": st.column_config.NumberColumn("Match", format="%.0f"),
         "Price": st.column_config.NumberColumn("Price (USD)", format="$%.0f"),
-        "Tier": "Brand tier", "Editor": "Editor's choice",
+        "Tier": "Brand tier",
     })
     st.download_button("Download as CSV", table.to_csv().encode(), "mouse_matches.csv", "text/csv")
 
@@ -563,10 +584,10 @@ def tab_about(target):
         f"Atlantis Mini for claw and aggressive claw. They get +{core.GRIP_FOCUS_PTS} points for those grips "
         f"and -{core.GRIP_FOCUS_PTS} for the others.\n"
         f"- **Newer tech (up to {core.RECENCY_POINTS[P['w_recency']]}):** sensor generation and polling rate.\n"
-        f"- **Weight (up to {core.WEIGHT_POINTS[P['w_wpref']]}):** \"Prefer light\" rewards up to 65 g, "
-        f"\"Ultralight\" only 50 g and below.\n"
+        f"- **Weight (up to {core.WEIGHT_POINTS[P['w_wpref']]}):** \"Ultralight\" shows only mice of 50 g and "
+        f"below, \"Light\" only 51 to 65 g, \"Don't mind\" every weight.\n"
         f"- **Brand tier:** " + ", ".join(f"{core.TIER_LABEL[k]} {v[1]:+d}" for k, v in cfg.items())
-        + f". **Editor's choice:** +{P['p_editor']}.\n"
+        + f". **Editor's choice:** +{P['p_editor']}. **Highly recommended:** +{P['p_highly']}.\n"
         f"- **Budget:** a mouse is shown if its price is within your budget plus its tier's stretch "
         f"({', '.join(f'{core.TIER_LABEL[k]} ${v}' for k, v in core.budget_caps(P['w_budget'], cfg).items())}). "
         f"Going over budget costs points, and selected ATK value mice get a small edge at ${core.VALUE_BUDGET_MAX} "
